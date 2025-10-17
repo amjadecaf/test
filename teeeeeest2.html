@@ -23,8 +23,7 @@
 <body>
 <h2>📡 Grid Decoder</h2>
 <button id="screenBtn">Share Screen</button>
-<button id="cameraBtn">Use Camera</button>
-<button id="finalizeBtn">Finalize ROI</button>
+
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas" width="640" height="480"></canvas>
 <div id="transcript">Transcript: <span id="output"></span></div>
@@ -59,108 +58,6 @@ document.getElementById('screenBtn').onclick = async () => {
   const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
   video.srcObject = stream;
   video.onloadedmetadata = () => autoCalibrate();
-};
-document.getElementById('cameraBtn').onclick = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-    video.srcObject = stream;
-
-    roi = { x: 50, y: 50, w: 300, h: 200 }; // initial guess
-    cellWidth = roi.w / GRID_COLS;
-    cellHeight = roi.h / GRID_ROWS;
-
-    const handles = [
-      { x: roi.x, y: roi.y, cursor: "nwse-resize", corner: "tl" },
-      { x: roi.x + roi.w, y: roi.y, cursor: "nesw-resize", corner: "tr" },
-      { x: roi.x, y: roi.y + roi.h, cursor: "nesw-resize", corner: "bl" },
-      { x: roi.x + roi.w, y: roi.y + roi.h, cursor: "nwse-resize", corner: "br" }
-    ];
-    let dragging = null;
-    let showHandles = true; // keep handles visible until finalize
-
-    function drawLoop() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(video,0,0,canvas.width,canvas.height);
-
-      if(showHandles){
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(roi.x, roi.y, roi.w, roi.h);
-
-        for(const h of handles){
-          ctx.fillStyle = "white";
-          ctx.strokeStyle = "black";
-          ctx.fillRect(h.x-10,h.y-10,20,20);
-          ctx.strokeRect(h.x-10,h.y-10,20,20);
-        }
-      }
-
-      requestAnimationFrame(drawLoop);
-    }
-    drawLoop();
-
-    function getTouchPos(e){
-      const rect = canvas.getBoundingClientRect();
-      const touch = e.touches[0] || e.changedTouches[0];
-      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-    }
-
-    canvas.addEventListener("touchstart", e => {
-      const pos = getTouchPos(e);
-      for(const h of handles){
-        if(pos.x >= h.x-20 && pos.x <= h.x+20 && pos.y >= h.y-20 && pos.y <= h.y+20){
-          dragging = h;
-          e.preventDefault();
-          break;
-        }
-      }
-    });
-
-    canvas.addEventListener("touchmove", e => {
-      if(dragging){
-        const pos = getTouchPos(e);
-        switch(dragging.corner){
-          case "tl":
-            roi.w += roi.x - pos.x; roi.h += roi.y - pos.y;
-            roi.x = pos.x; roi.y = pos.y;
-            break;
-          case "tr":
-            roi.w = pos.x - roi.x; roi.h += roi.y - pos.y;
-            roi.y = pos.y;
-            break;
-          case "bl":
-            roi.w += roi.x - pos.x; roi.h = pos.y - roi.y;
-            roi.x = pos.x;
-            break;
-          case "br":
-            roi.w = pos.x - roi.x; roi.h = pos.y - roi.y;
-            break;
-        }
-        // Update handle positions
-        handles[0].x = roi.x; handles[0].y = roi.y;
-        handles[1].x = roi.x+roi.w; handles[1].y = roi.y;
-        handles[2].x = roi.x; handles[2].y = roi.y+roi.h;
-        handles[3].x = roi.x+roi.w; handles[3].y = roi.y+roi.h;
-        e.preventDefault();
-      }
-    });
-
-    canvas.addEventListener("touchend", e => {
-      dragging = null;
-    });
-
-    // Finalize button
-    document.getElementById('finalizeBtn').onclick = () => {
-      showHandles = false; // hide rectangle and handles
-      cellWidth = roi.w / GRID_COLS;
-      cellHeight = roi.h / GRID_ROWS;
-      analyzeFrames();
-    };
-
-  } catch(e) {
-    alert("Camera access failed.");
-    console.error(e);
-  }
 };
 
 // --- auto-calibration to detect grid bounds ---
@@ -254,13 +151,6 @@ function analyzeFrames(){
   }
   loop();
 }
-finalizeBtn.onclick = () => {
-    // roi has been adjusted by user via handles
-    console.log("ROI finalized:", roi);
-    
-    // Start detecting letters after finalizing ROI
-    analyzeFrames();
-};
 </script>
 
 </body>
