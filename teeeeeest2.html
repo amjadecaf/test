@@ -59,89 +59,36 @@ document.getElementById('screenBtn').onclick = async () => {
   video.srcObject = stream;
   video.onloadedmetadata = () => autoCalibrate();
 };
-// --- phone camera with auto grid detection ---
 document.getElementById('cameraBtn').onclick = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     video.srcObject = stream;
     video.onloadedmetadata = () => {
-      // Wait for OpenCV to load
-      if (typeof cv === 'undefined') {
-        console.error("OpenCV.js not loaded yet.");
-        return;
-      }
-      startCameraGridDetection();
+      // Set ROI manually like share screen
+      const TITLE_BAR_HEIGHT = 30;
+      const LEFT_RIGHT_CROP = 2;
+      const BOTTOM_CROP = 60;
+
+      roi = {
+        x: LEFT_RIGHT_CROP,
+        y: TITLE_BAR_HEIGHT,
+        w: canvas.width - LEFT_RIGHT_CROP * 2,
+        h: canvas.height - TITLE_BAR_HEIGHT - BOTTOM_CROP
+      };
+
+      cellWidth = roi.w / GRID_COLS;
+      cellHeight = roi.h / GRID_ROWS;
+
+      console.log("📷 Camera ROI:", roi);
+
+      // Start analyzing frames using existing function
+      analyzeFrames();
     };
   } catch(e) {
     alert("Camera access failed.");
     console.error(e);
   }
 };
-
-function startCameraGridDetection() {
-  const src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
-  const gray = new cv.Mat();
-  const edges = new cv.Mat();
-  const contours = new cv.MatVector();
-  const hierarchy = new cv.Mat();
-
-  function processFrame() {
-    if(video.paused || video.ended) {
-      requestAnimationFrame(processFrame);
-      return;
-    }
-
-    // Draw current video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Read pixels from canvas to OpenCV mat
-    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    src.data.set(imageData.data);
-
-    // Convert to grayscale
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-
-    // Detect edges
-    cv.Canny(gray, edges, 50, 150);
-
-    // Find contours
-    cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-    let bestRect = null;
-    for(let i=0; i<contours.size(); i++) {
-      let cnt = contours.get(i);
-      let rect = cv.boundingRect(cnt);
-      let aspect = rect.width / rect.height;
-      if(aspect > 1.1 && aspect < 1.4) { // approx 6/5 ratio
-        if(!bestRect || rect.width*rect.height > bestRect.width*bestRect.height) {
-          bestRect = rect;
-        }
-      }
-    }
-
-    if(bestRect) {
-      // Draw detected rectangle on canvas
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 3;
-      ctx.strokeRect(bestRect.x, bestRect.y, bestRect.width, bestRect.height);
-
-      // Update ROI for your existing analyzeFrames logic
-      roi = {
-        x: bestRect.x,
-        y: bestRect.y,
-        w: bestRect.width,
-        h: bestRect.height
-      };
-      cellWidth = roi.w / GRID_COLS;
-      cellHeight = roi.h / GRID_ROWS;
-    }
-
-    requestAnimationFrame(processFrame);
-  }
-
-  processFrame();
-}
-
 // --- auto-calibration to detect grid bounds ---
 function autoCalibrate(){
   const attempts = 10;
@@ -234,6 +181,6 @@ function analyzeFrames(){
   loop();
 }
 </script>
-<script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+
 </body>
 </html>
