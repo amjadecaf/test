@@ -24,6 +24,7 @@
 <h2>📡 Grid Decoder</h2>
 <button id="screenBtn">Share Screen</button>
 <button id="cameraBtn">Use Camera</button>
+<button id="finalizeBtn">Finalize ROI</button>
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas" width="640" height="480"></canvas>
 <div id="transcript">Transcript: <span id="output"></span></div>
@@ -64,12 +65,10 @@ document.getElementById('cameraBtn').onclick = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     video.srcObject = stream;
 
-    // Crop selection rectangle
     roi = { x: 50, y: 50, w: 300, h: 200 }; // initial guess
     cellWidth = roi.w / GRID_COLS;
     cellHeight = roi.h / GRID_ROWS;
 
-    // Handles for resizing
     const handles = [
       { x: roi.x, y: roi.y, cursor: "nwse-resize", corner: "tl" },
       { x: roi.x + roi.w, y: roi.y, cursor: "nesw-resize", corner: "tr" },
@@ -77,22 +76,23 @@ document.getElementById('cameraBtn').onclick = async () => {
       { x: roi.x + roi.w, y: roi.y + roi.h, cursor: "nwse-resize", corner: "br" }
     ];
     let dragging = null;
+    let showHandles = true; // keep handles visible until finalize
 
     function drawLoop() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(video,0,0,canvas.width,canvas.height);
 
-      // Draw crop rectangle
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(roi.x, roi.y, roi.w, roi.h);
+      if(showHandles){
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(roi.x, roi.y, roi.w, roi.h);
 
-      // Draw handles
-      for(const h of handles){
-        ctx.fillStyle = "white";
-        ctx.strokeStyle = "black";
-        ctx.fillRect(h.x-10,h.y-10,20,20);
-        ctx.strokeRect(h.x-10,h.y-10,20,20);
+        for(const h of handles){
+          ctx.fillStyle = "white";
+          ctx.strokeStyle = "black";
+          ctx.fillRect(h.x-10,h.y-10,20,20);
+          ctx.strokeRect(h.x-10,h.y-10,20,20);
+        }
       }
 
       requestAnimationFrame(drawLoop);
@@ -105,7 +105,6 @@ document.getElementById('cameraBtn').onclick = async () => {
       return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
     }
 
-    // Touch drag events for handles
     canvas.addEventListener("touchstart", e => {
       const pos = getTouchPos(e);
       for(const h of handles){
@@ -148,11 +147,15 @@ document.getElementById('cameraBtn').onclick = async () => {
 
     canvas.addEventListener("touchend", e => {
       dragging = null;
-      // Once finalized, compute cell sizes and start analysis
+    });
+
+    // Finalize button
+    document.getElementById('finalizeBtn').onclick = () => {
+      showHandles = false; // hide rectangle and handles
       cellWidth = roi.w / GRID_COLS;
       cellHeight = roi.h / GRID_ROWS;
       analyzeFrames();
-    });
+    };
 
   } catch(e) {
     alert("Camera access failed.");
