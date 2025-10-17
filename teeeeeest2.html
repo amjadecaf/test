@@ -254,6 +254,13 @@ function analyzeFrames(){
   }
   loop();
 }
+finalizeBtn.onclick = () => {
+    // roi has been adjusted by user via handles
+    console.log("ROI finalized:", roi);
+    
+    // Start detecting letters after finalizing ROI
+    analyzeFrames();
+};
 </script>
 
 </body>
