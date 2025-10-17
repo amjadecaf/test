@@ -63,27 +63,61 @@ document.getElementById('cameraBtn').onclick = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      // Set ROI manually like share screen
-      const TITLE_BAR_HEIGHT = 30;
-      const LEFT_RIGHT_CROP = 2;
-      const BOTTOM_CROP = 60;
 
-      roi = {
-        x: LEFT_RIGHT_CROP,
-        y: TITLE_BAR_HEIGHT,
-        w: canvas.width - LEFT_RIGHT_CROP * 2,
-        h: canvas.height - TITLE_BAR_HEIGHT - BOTTOM_CROP
-      };
+    // Draw live camera feed on canvas
+    function drawLoop() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
 
-      cellWidth = roi.w / GRID_COLS;
-      cellHeight = roi.h / GRID_ROWS;
+      // Draw selection rectangle if user is selecting
+      if(isSelecting){
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+      }
 
-      console.log("📷 Camera ROI:", roi);
+      requestAnimationFrame(drawLoop);
+    }
+    drawLoop();
 
-      // Start analyzing frames using existing function
-      analyzeFrames();
+    // ROI selection variables
+    let isSelecting = false;
+    let startX, startY, endX, endY;
+
+    // Mouse events for selecting ROI
+    canvas.onmousedown = e => {
+      isSelecting = true;
+      startX = e.offsetX;
+      startY = e.offsetY;
+      endX = startX;
+      endY = startY;
     };
+
+    canvas.onmousemove = e => {
+      if(isSelecting){
+        endX = e.offsetX;
+        endY = e.offsetY;
+      }
+    };
+
+    canvas.onmouseup = e => {
+      if(isSelecting){
+        isSelecting = false;
+        roi = {
+          x: Math.min(startX,endX),
+          y: Math.min(startY,endY),
+          w: Math.abs(endX-startX),
+          h: Math.abs(endY-startY)
+        };
+        console.log("📷 Camera ROI selected:", roi);
+
+        // Compute cell sizes and start analyzing
+        cellWidth = roi.w / GRID_COLS;
+        cellHeight = roi.h / GRID_ROWS;
+        analyzeFrames();
+      }
+    };
+
   } catch(e) {
     alert("Camera access failed.");
     console.error(e);
