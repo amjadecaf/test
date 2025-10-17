@@ -64,6 +64,10 @@ document.getElementById('cameraBtn').onclick = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     video.srcObject = stream;
 
+    // ROI selection variables (move them here)
+    let isSelecting = false;
+    let startX = 0, startY = 0, endX = 0, endY = 0;
+
     // Draw live camera feed on canvas
     function drawLoop() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -79,10 +83,6 @@ document.getElementById('cameraBtn').onclick = async () => {
       requestAnimationFrame(drawLoop);
     }
     drawLoop();
-
-    // ROI selection variables
-    let isSelecting = false;
-    let startX, startY, endX, endY;
 
     // Mouse events for selecting ROI
     canvas.onmousedown = e => {
@@ -119,10 +119,11 @@ document.getElementById('cameraBtn').onclick = async () => {
     };
 
   } catch(e) {
-    alert("Camera access failed.");
+    alert("Camera access failed. Make sure you allowed the browser to use the camera and are using HTTPS or localhost.");
     console.error(e);
   }
 };
+
 // --- auto-calibration to detect grid bounds ---
 function autoCalibrate(){
   const attempts = 10;
